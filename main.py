@@ -3,8 +3,11 @@ import string
 import sys
 import csv
 from bs4 import BeautifulSoup
+from typing import List
 from urllib.request import urlopen, Request
 from urllib.error import HTTPError
+import utils.google_drive as drive
+from utils.backup_output import backup_file
 
 # todos:
 # 1) make a CSV with rules -
@@ -17,6 +20,8 @@ WATCHLIST = [ 'MRK', 'khc', 'BMY', 'ko', 'pru', 'viac', 'cvs', 'ups', 'NLY', 'MB
              'shlx', 'iep', 'sun', 'cim', 'AM', 'PSXP', 'MPLX', 'ET', 'LUMN', 'AIZ', 'BWA', 'CMA', 'COG', 'DXC', 'FANG', 'FRT', 'FTI', 'HBI', 'HII',
               'IPG', 'IRM', 'IVZ', 'JNPR', 'KIM', 'LEG', 'LNC', 'NI', 'LSN', 'PBCT', 'PNW', 'PRGO', 'RE', 'REG', 'SEE', 'SLG',
              'SNA', 'TPR', 'UNM', 'VNO', 'VNT', 'VTRS', 'WU', 'XRX', 'ZION']
+WATCHLIST_MINING = ['SBSW', 'AMR', 'PLL', 'SLCA', 'DNN', 'NXE', 'SILV']
+
 WATCHLIST_OLD = ['AMZN', 'GM', 'AXP', 'HON', 'ISRG', 'FSLY', 'XOM']
 FINVIZ_TABLE_CONTENTS_ALL = ['Index', 'P/E', 'EPS (ttm)', 'Insider Own', 'Shs Outstand', 'Perf Week',
                              'Market Cap', 'Forward P/E', 'EPS next Y', 'Insider Trans', 'Shs Float', 'Perf Month',
@@ -90,7 +95,7 @@ def get_webpage_soup(wp_url: string):
 csv_file_name = 'test_scraper.csv'
 
 
-def write_to_csv(data: dict):
+def write_to_csv(data: dict, write_header: bool = False):
     printfrq(f'Writing to .csv file..', PRINT_FREQ_LOW)
     csv_columns = CSV_COLUMNS
 
@@ -98,15 +103,15 @@ def write_to_csv(data: dict):
         with open(csv_file_name, 'a+', newline='') as csvfile:
         # with open(csv_file_name, 'a+', newline='') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=FINVIZ_TABLE_CONTENTS_REQ_MAIN)
-            writer.writeheader()
+            if write_header:
+                writer.writeheader()
             # for data in dict_data:
             writer.writerow(data)
     except IOError as e:
         print(f'I/O error !!! {e}')
 
 
-def fetch_stock_data(stocks: list[string]):
-    # print(stocks)
+def fetch_stock_data(stocks: List[str]):
     for s in stocks:
         url_to_fetch = FINVIZ_URL + s
         printfrq('getting info for stock:' + s.upper() + ' url - ' + url_to_fetch, PRINT_FREQ_LOW)
@@ -136,16 +141,26 @@ def fetch_stock_data(stocks: list[string]):
         # dict_2 = sorted(dict_1.items(), key=lambda pair: index_map[pair[0]])
         # printfrq(dict_2, PRINT_FREQ_LOW)
 
-        write_to_csv(dict_1)
+        write_to_csv(dict_1, s == stocks[0])
+
+
+output_file = "test_scraper"
+output_file_ext = "csv"
 
 if __name__ == '__main__':
     printfrq('Starting py scraper..', PRINT_FREQ_LOW)
 
-    url_to_fetch = FINVIZ_URL_CITI
-    if len(sys.argv) > 1:
-        fetch_stock_data(sys.argv[1:])
-    else:
-        fetch_stock_data(WATCHLIST)
-
+    backup_file(output_file, output_file_ext)
+    if True:
+        url_to_fetch = FINVIZ_URL_CITI
+        if len(sys.argv) > 1:
+            fetch_stock_data(sys.argv[1:])
+        else:
+            fetch_stock_data(WATCHLIST)
 
     printfrq('Scraper Finished Successfully !', PRINT_FREQ_LOW)
+
+    # upload to drive
+    dc = drive.init()
+    drive.upload_to_drive(dc, ".".join([output_file, output_file_ext]))
+
